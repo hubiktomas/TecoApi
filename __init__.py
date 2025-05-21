@@ -11,6 +11,7 @@ import re
 import homeassistant.helpers.config_validation as cv
 from homeassistant import config_entries
 from homeassistant.components import persistent_notification
+from homeassistant.helpers import discovery
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.const import (
     CONF_RESOURCE,
@@ -75,17 +76,17 @@ async def async_setup(hass, config):
     hass.data[DATA_TECOAPI] = TecoApiData(hass, component_config)
 
     if component_config.get(CONF_GETINFO):
-        hass.helpers.discovery.load_platform("sensor", DOMAIN, TECOAPI_GETINFO, config)
+        discovery.load_platform(hass, "sensor", DOMAIN, TECOAPI_GETINFO, config)
 
     if component_config.get(CONF_GETLIST):
-        hass.helpers.discovery.load_platform("sensor", DOMAIN, TECOAPI_GETLIST, config)
+        discovery.load_platform(hass, "sensor", DOMAIN, TECOAPI_GETLIST, config)
 
     for platform, pconfig in FORWARD_PLATFORMS.items():
         if pconfig in component_config:
-            hass.helpers.discovery.load_platform(platform, DOMAIN, component_config[pconfig], config)
+            discovery.load_platform(hass, platform, DOMAIN, component_config[pconfig], config)
 
     if config.get(CONF_GETLIST):
-        hass.helpers.discovery.load_platform("sensor", DOMAIN, TECOAPI_GETINFO, config)
+        discovery.load_platform(hass, "sensor", DOMAIN, TECOAPI_GETINFO, config)
 
     await async_register_services(hass)
 
