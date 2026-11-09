@@ -1,17 +1,10 @@
-""""TecoAPI Sensor."""
+"""TecoAPI Sensor."""
 import logging
 from datetime import timedelta
 import asyncio
 import voluptuous as vol
 import aiohttp
 
-from homeassistant.core import split_entity_id
-from homeassistant.components.group import (
-    ATTR_ADD_ENTITIES,
-    ATTR_OBJECT_ID,
-    SERVICE_SET,
-    DOMAIN as DOMAIN_GROUP
-)
 import homeassistant.helpers.config_validation as cv
 from homeassistant.exceptions import PlatformNotReady
 from homeassistant.components.sensor import (
@@ -37,6 +30,11 @@ from .const import (
     TECOAPI_GETLIST,
 )
 
+DOMAIN_GROUP = "group"
+SERVICE_SET = "set"
+ATTR_OBJECT_ID = "object_id"
+ATTR_ADD_ENTITIES = "add_entities"
+
 SENSOR_SCHEMA = {
     vol.Required(CONF_OBJECT): cv.string,
     vol.Optional(CONF_NAME, default=""): cv.string,
@@ -56,29 +54,25 @@ _LOGGER = logging.getLogger(__name__)
 
 async def create_group(hass, name, entities):
     """Create group"""
-    group = hass.components.group
-
-    entity = await group.Group.async_create_group(
-            hass,
-            name,
-#            control=False,
-            object_id = "{}_{}".format(DOMAIN, "entities"),
-        )
-
-    _, group_id = split_entity_id(entity.entity_id)
-
     ids = []
     for ent in entities:
         if not ent._children:
             ids.append(ent.entity_id)
 
-    hass.async_add_job(
-                hass.services.async_call(
-                    DOMAIN_GROUP,
-                    SERVICE_SET,
-                    {ATTR_OBJECT_ID: group_id, ATTR_ADD_ENTITIES: ids},
-                )
-            )
+    if not ids:
+        return
+
+    group_id = "{}_{}".format(DOMAIN, "entities")
+
+    await hass.services.async_call(
+        DOMAIN_GROUP,
+        SERVICE_SET,
+        {
+            ATTR_OBJECT_ID: group_id,
+            "name": name,
+            ATTR_ADD_ENTITIES: ids,
+        },
+    )
 
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Set up the TecoAPI sensor."""
@@ -100,7 +94,7 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
     elif discovery_info == TECOAPI_GETLIST:
         objects = await data.async_get(TECOAPI_GETLIST, None, True)
         for objectid in objects:
-            await async_setup_sensor(hass, data, None, entities, objectid)
+            await async_setup_sensor(hass, data, {}, entities, objectid)
     else:
         for child_config in discovery_info:
             objectid = child_config.get(CONF_OBJECT)
@@ -110,14 +104,15 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
 
     for entity in entities:
         if entity._parent is None:
-            entities = entity.get_all_sensors()
-            if len(entities) > 1:
-                await create_group(hass, entity.name, entities)
+            child_entities = entity.get_all_sensors()
+            if len(child_entities) > 1:
+                await create_group(hass, entity.name, child_entities)
 
 async def async_setup_sensor(hass, data, config, entities, objectid, parent = None):
     """Set up sensor helper """
     # pylint: disable=too-many-arguments
     try:
+        config = config or {}
         if parent is None:
             if objectid == TECOAPI_GETINFO:
                 value = await data.async_get(TECOAPI_GETINFO, None, True)
@@ -149,7 +144,7 @@ async def async_setup_sensor(hass, data, config, entities, objectid, parent = No
 
                 if parent is None or not sensor._children:
                     entities.insert(pos, sensor)                
-        elif type(value) is not None:
+        elif value is not None:
             if arraysize is not None and arraysize > 0:
                 for i in range(arraysize):
                     entities.append(TecoApiSensor(data, config, f"{objectid}[{i}]", value, parent, i))
@@ -170,7 +165,7 @@ class TecoApiSensor(Entity):
     def __init__(self, data, config, objectid, value, parent, index):
         """Init."""
         # pylint: disable=too-many-arguments
-        
+        config = config or {}
         self._name = config.get(CONF_NAME)
         self._device_class = config.get(CONF_DEVICE_CLASS)
         self._unit_of_measurement = config.get(CONF_UNIT_OF_MEASUREMENT)

@@ -3,7 +3,7 @@
   "name": "TecoAPI",
   "documentation": "https://github.com/jrojko/hass_tecoapi",
   "requirements": [],
-  "dependencies": [],
+  "dependencies": ["group"],
   "codeowners": ["@jrojko"],
-  "version": "1.0.0"
+  "version": "1.0.1"
 }

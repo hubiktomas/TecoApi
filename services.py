@@ -4,6 +4,7 @@ import json
 
 import voluptuous as vol
 
+from homeassistant.components import persistent_notification
 import homeassistant.helpers.config_validation as cv
 
 from .const import (
@@ -29,8 +30,8 @@ async def async_register_services(hass):
         data = hass.data[DATA_TECOAPI]
         value = await data.async_get('GetObject', call.data[CONF_OBJECT], False)
 
-        hass.components.persistent_notification.async_create(
-            json.dumps(value, indent=1), "Nibe get parameter result"
+        persistent_notification.async_create(
+            hass, json.dumps(value, indent=1), "Nibe get parameter result"
         )
 
     SERVICE_SET_OBJECT_SCHEMA = vol.Schema(

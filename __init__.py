@@ -76,17 +76,25 @@ async def async_setup(hass, config):
     hass.data[DATA_TECOAPI] = TecoApiData(hass, component_config)
 
     if component_config.get(CONF_GETINFO):
-        discovery.load_platform(hass, "sensor", DOMAIN, TECOAPI_GETINFO, config)
+        hass.async_create_task(
+            discovery.async_load_platform(hass, "sensor", DOMAIN, TECOAPI_GETINFO, config)
+        )
 
     if component_config.get(CONF_GETLIST):
-        discovery.load_platform(hass, "sensor", DOMAIN, TECOAPI_GETLIST, config)
+        hass.async_create_task(
+            discovery.async_load_platform(hass, "sensor", DOMAIN, TECOAPI_GETLIST, config)
+        )
 
     for platform, pconfig in FORWARD_PLATFORMS.items():
         if pconfig in component_config:
-            discovery.load_platform(hass, platform, DOMAIN, component_config[pconfig], config)
+            hass.async_create_task(
+                discovery.async_load_platform(hass, platform, DOMAIN, component_config[pconfig], config)
+            )
 
     if config.get(CONF_GETLIST):
-        discovery.load_platform(hass, "sensor", DOMAIN, TECOAPI_GETINFO, config)
+        hass.async_create_task(
+            discovery.async_load_platform(hass, "sensor", DOMAIN, TECOAPI_GETINFO, config)
+        )
 
     await async_register_services(hass)
 
@@ -120,7 +128,7 @@ class TecoApiData:
         resource = self.resource + service
 
         async with self.parallel_updates_semaphore:
-            with async_timeout.timeout(self.timeout):
+            async with async_timeout.timeout(self.timeout):
                 if objectid:
                     body = json.dumps({objectid: value})
                 else:
@@ -136,9 +144,7 @@ class TecoApiData:
                 if req.status == 204:
                     return True
 
-                _LOGGER.error(
-                    _LOGGER.debug("TecoApi PUT %s %s failed. Status: %s", service, body, req.status)
-                )
+                _LOGGER.debug("TecoApi PUT %s %s failed. Status: %s", service, body, req.status)
 
         return False
 
@@ -151,7 +157,7 @@ class TecoApiData:
             resource += '?' + objectid
 
         async with self.parallel_updates_semaphore:
-            with async_timeout.timeout(DEFAULT_TIMEOUT_WAIT if wait else self.timeout):
+            async with async_timeout.timeout(DEFAULT_TIMEOUT_WAIT if wait else self.timeout):
                 req = await websession.get(
                     resource,
                     auth = self.auth,
@@ -171,8 +177,6 @@ class TecoApiData:
                                 value = value[0]
                     return value
 
-            _LOGGER.error(
                 _LOGGER.debug("TecoApi GET %s %s failed. Status: %s, %s", service, objectid, req.status, resource)
-            )
 
         return None
